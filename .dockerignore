@@ -1,0 +1,25 @@
+# Folder node_modules
+node_modules
+npm-debug.log
+
+# Folder data WhatsApp (akan dibuat fresh di container)
+whatsapp-auth
+
+# File environment
+.env
+.env.local
+
+# File log dan temporary
+*.log
+.DS_Store
+
+# Editor dan IDE files
+.idea
+.vscode
+*.swp
+*.swo
+
+# Dokumentasi dan file lain yang tidak perlu di image
+README.md
+LICENSE
+*.md
