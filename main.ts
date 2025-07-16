@@ -13,7 +13,7 @@ import { InMemoryMessageQueue, QueueItem } from './utils/message-queue';
 
 // Set default API secret key jika tidak ada di environment
 if (!process.env.API_SECRET_KEY) {
-  process.env.API_SECRET_KEY = 'suman-residence-whatsapp-secret-2025';
+  process.env.API_SECRET_KEY = 'bukanSecretBeneran';
   console.log('API_SECRET_KEY not found in environment, using default value');
 }
 
@@ -152,4 +152,4 @@ const app = new Elysia()
   });
 
 console.log('CORS enabled for all origins (*)');
-console.log('WhatsApp client initializing...')
+console.log('WhatsApp client initializing...');
