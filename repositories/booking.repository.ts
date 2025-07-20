@@ -16,7 +16,6 @@ export interface BookingRoom {
   floor: number;
   size: string;
   description: string;
-  totalPrice: number;
   facilities: string[];
   imagesGallery: string[];
 }
@@ -31,7 +30,7 @@ export interface Booking {
   id: string;
   userId: string;
   room: BookingRoom;
-  rentalStatus: 'PENDING' | 'CONFIRMED' | 'ACTIVE' | 'CANCELLED' | 'EXPIRED';
+  rentalStatus: 'PENDING' | 'SETUJUI' | 'CANCEL';
   rentalPeriod: BookingPeriod;
   documents: BookingDocument[];
   notes?: string;

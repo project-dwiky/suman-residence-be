@@ -552,7 +552,6 @@ const app = new Elysia()
           floor: bookingData.room.floor || 1,
           size: bookingData.room.size || 'Standard',
           description: bookingData.room.description || '',
-          totalPrice: bookingData.room.totalPrice || bookingData.room.monthlyPrice || 0,
           facilities: bookingData.room.facilities || [],
           imagesGallery: bookingData.room.images || bookingData.room.imagesGallery || []
         },
@@ -628,7 +627,7 @@ const app = new Elysia()
         };
       }
 
-      let newStatus: 'PENDING' | 'CONFIRMED' | 'ACTIVE' | 'CANCELLED' | 'EXPIRED';
+      let newStatus: 'PENDING' | 'SETUJUI' | 'CANCEL';
       let statusMessage: string;
 
       switch (action) {
@@ -639,36 +638,20 @@ const app = new Elysia()
               error: 'Only pending bookings can be approved'
             };
           }
-          newStatus = 'CONFIRMED';
+          newStatus = 'SETUJUI';
           statusMessage = 'approved';
           break;
 
         case 'reject':
-          if (booking.rentalStatus !== 'PENDING') {
-            return {
-              success: false,
-              error: 'Only pending bookings can be rejected'
-            };
-          }
-          newStatus = 'CANCELLED';
-          statusMessage = 'rejected';
-          break;
-
-        case 'confirm':
-          if (booking.rentalStatus !== 'CONFIRMED') {
-            return {
-              success: false,
-              error: 'Only confirmed bookings can be activated'
-            };
-          }
-          newStatus = 'ACTIVE';
-          statusMessage = 'activated';
+        case 'cancel':
+          newStatus = 'CANCEL';
+          statusMessage = action === 'reject' ? 'rejected' : 'cancelled';
           break;
 
         default:
           return {
             success: false,
-            error: 'Invalid action'
+            error: 'Invalid action. Use: approve, reject, or cancel'
           };
       }
 
@@ -972,8 +955,8 @@ const app = new Elysia()
           const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
           const isExpiring = daysDiff <= 1; // Within 1 day of target
           
-          // Only send reminders for active bookings
-          const isActive = booking.rentalStatus === 'ACTIVE' || booking.rentalStatus === 'CONFIRMED';
+          // Only send reminders for approved bookings
+          const isActive = booking.rentalStatus === 'SETUJUI';
           
           return matchesDurationType && isExpiring && isActive;
         });
@@ -1273,13 +1256,8 @@ function generateReminderMessage(data: {
   });
 
   const roomInfo = data.booking.room?.roomNumber || data.booking.room?.id || 'N/A';
-  const totalPrice = data.booking.room?.totalPrice || 0;
   
-  const formattedPrice = new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-  }).format(totalPrice);
+  // Note: Price management removed from system
 
   // Get duration label in Indonesian
   const durationLabel = {
@@ -1314,7 +1292,6 @@ Kontrak sewa ${durationLabel} Anda akan berakhir dalam *${data.daysRemaining} ha
 📋 *Detail Kontrak:*
 • Kamar: ${roomInfo}
 • Tipe Sewa: ${durationLabel}
-• Tarif: ${formattedPrice}
 • Berakhir: ${endDate}
 
 💡 ${actionText}
