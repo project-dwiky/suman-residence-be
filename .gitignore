@@ -1,5 +1,6 @@
 .DS_Store
-.env
+.env*
+.env.wa.local
 .env.local
 whatsapp-auth
 node_modules/

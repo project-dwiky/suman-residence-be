@@ -4,7 +4,6 @@ import makeWASocket, {
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore
 } from '@whiskeysockets/baileys';
-import { Boom } from '@hapi/boom';
 
 // Global state
 let sock: ReturnType<typeof makeWASocket> | null = null;
@@ -45,7 +44,7 @@ async function connectToWhatsApp() {
     }
     
     if (connection === 'close') {
-      const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+      const shouldReconnect = (lastDisconnect?.error as any)?.output?.statusCode !== DisconnectReason.loggedOut;
       console.log('Connection closed due to ', lastDisconnect?.error, ', reconnecting: ', shouldReconnect);
       
       if (shouldReconnect) {
