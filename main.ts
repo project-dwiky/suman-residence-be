@@ -21,7 +21,7 @@ if (!process.env.API_SECRET_KEY) {
 }
 
 // Set default BACKEND_API_KEY for frontend communications
-if (!process.env.KEY) {
+if (!process.env.BACKEND_API_KEY) {
   process.env.BACKEND_API_KEY = 'gaadakey';
   console.log('BACKEND_API_KEY not found in environment, using default value');
 }
