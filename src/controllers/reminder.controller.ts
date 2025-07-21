@@ -23,7 +23,7 @@ export const sendReminder = async (req: Request, res: Response) => {
   try {
     // Verify authorization
     const authHeader = req.headers.authorization;
-    const expectedKey = process.env.BACKEND_API_KEY || 'your-backend-api-key';
+    const expectedKey = process.env.BACKEND_API_KEY || 'gaadakey';
     
     if (!authHeader || authHeader !== `Bearer ${expectedKey}`) {
       return res.status(401).json({ error: 'Unauthorized' });
