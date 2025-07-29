@@ -11,8 +11,8 @@ import {
   qrCode
 } from './utils/whatsapp-connection';
 import { InMemoryMessageQueue, QueueItem } from './utils/message-queue';
-import { getAllRooms, getRoomById, createRoom, updateRoom, deleteRoom } from './repositories/room.repository';
-import { getAllBookings, getBookingById, getBookingsByUserId, createBooking, updateBooking, deleteBooking } from './repositories/booking.repository';
+import { bookingReminderService } from './utils/booking-reminder';
+import { cronManager } from './utils/cron-manager';
 
 // Set default API secret key jika tidak ada di environment
 if (!process.env.API_SECRET_KEY) {
@@ -236,559 +236,6 @@ const app = new Elysia()
       };
     }
   })
-  // Rooms Management Endpoints
-  .get('/api/rooms', async () => {
-    try {
-      const rooms = await getAllRooms();
-      
-      return {
-        success: true,
-        rooms: rooms
-      };
-    } catch (error: any) {
-      console.error('Error fetching rooms:', error);
-      return {
-        success: false,
-        error: 'Failed to fetch rooms',
-        message: error.message || 'Unknown error'
-      };
-    }
-  })
-  .get('/api/rooms/:id', async ({ params }) => {
-    try {
-      const { id } = params;
-      
-      const room = await getRoomById(id);
-      
-      if (!room) {
-        return {
-          success: false,
-          room: null,
-          message: 'Room not found'
-        };
-      }
-      
-      return {
-        success: true,
-        room: room
-      };
-    } catch (error: any) {
-      console.error('Error fetching room:', error);
-      return {
-        success: false,
-        error: 'Failed to fetch room',
-        message: error.message || 'Unknown error'
-      };
-    }
-  })
-  .post('/api/admin/rooms', async ({ body, headers }) => {
-    try {
-      // Verify authorization
-      const authHeader = headers.authorization;
-      const expectedKey = process.env.BACKEND_API_KEY || 'gaadakey';
-      
-      if (!authHeader || authHeader !== `Bearer ${expectedKey}`) {
-        return {
-          success: false,
-          error: 'Unauthorized'
-        };
-      }
-
-      const roomData = body as any;
-
-      // Validate required fields
-      if (!roomData.name || !roomData.monthlyPrice || !roomData.size) {
-        return {
-          success: false,
-          error: 'Missing required fields: name, monthlyPrice, size'
-        };
-      }
-
-      // Prepare room data for Firestore
-      const newRoomData = {
-        name: roomData.name,
-        status: 'Available' as const,
-        type: roomData.type || 'Standard',
-        price: roomData.monthlyPrice, // For compatibility
-        monthlyPrice: roomData.monthlyPrice,
-        pricing: roomData.pricing || {
-          weekly: Math.round(roomData.monthlyPrice * 0.3),
-          monthly: roomData.monthlyPrice,
-          semester: Math.round(roomData.monthlyPrice * 5.5), // 6 months with discount
-          yearly: Math.round(roomData.monthlyPrice * 10) // 12 months with discount
-        },
-        description: roomData.description || '',
-        facilities: roomData.facilities || [],
-        images: roomData.images || [],
-        maxOccupancy: roomData.maxOccupancy || 1,
-        size: roomData.size
-      };
-
-      // Create room in Firestore
-      const roomId = await createRoom(newRoomData);
-      
-      // Fetch the created room to return complete data
-      const createdRoom = await getRoomById(roomId);
-      
-      return {
-        success: true,
-        message: 'Room created successfully',
-        roomId: roomId,
-        room: createdRoom
-      };
-
-    } catch (error: any) {
-      console.error('Error creating room:', error);
-      return {
-        success: false,
-        error: 'Failed to create room',
-        message: error.message || 'Unknown error'
-      };
-    }
-  })
-  .delete('/api/admin/rooms/:id', async ({ params, headers }) => {
-    try {
-      // Verify authorization
-      const authHeader = headers.authorization;
-      const expectedKey = process.env.BACKEND_API_KEY || 'gaadakey';
-      
-      if (!authHeader || authHeader !== `Bearer ${expectedKey}`) {
-        return {
-          success: false,
-          error: 'Unauthorized'
-        };
-      }
-
-      const { id } = params;
-      
-      // Check if room exists
-      const existingRoom = await getRoomById(id);
-      if (!existingRoom) {
-        return {
-          success: false,
-          error: 'Room not found'
-        };
-      }
-      
-      // Delete room from Firestore
-      await deleteRoom(id);
-      
-      return {
-        success: true,
-        message: 'Room deleted successfully'
-      };
-
-    } catch (error: any) {
-      console.error('Error deleting room:', error);
-      return {
-        success: false,
-        error: 'Failed to delete room',
-        message: error.message || 'Unknown error'
-      };
-    }
-  })
-  .put('/api/admin/rooms/:id', async ({ params, body, headers }) => {
-    try {
-      // Verify authorization
-      const authHeader = headers.authorization;
-      const expectedKey = process.env.BACKEND_API_KEY || 'gaadakey';
-      
-      if (!authHeader || authHeader !== `Bearer ${expectedKey}`) {
-        return {
-          success: false,
-          error: 'Unauthorized'
-        };
-      }
-
-      const { id } = params;
-      const updateData = body as any;
-      
-      // Check if room exists
-      const existingRoom = await getRoomById(id);
-      if (!existingRoom) {
-        return {
-          success: false,
-          error: 'Room not found'
-        };
-      }
-      
-      // Prepare update data
-      const dataToUpdate: any = {
-        ...(updateData.name && { name: updateData.name }),
-        ...(updateData.description && { description: updateData.description }),
-        ...(updateData.facilities && { facilities: updateData.facilities }),
-        ...(updateData.images && { images: updateData.images }),
-        ...(updateData.maxOccupancy && { maxOccupancy: updateData.maxOccupancy }),
-        ...(updateData.size && { size: updateData.size }),
-        ...(updateData.type && { type: updateData.type }),
-        ...(updateData.status && { status: updateData.status })
-      };
-
-      // Handle pricing structure
-      if (updateData.monthlyPrice) {
-        dataToUpdate.monthlyPrice = updateData.monthlyPrice;
-        dataToUpdate.price = updateData.monthlyPrice; // For compatibility
-        
-        // Update or generate pricing structure
-        if (updateData.pricing) {
-          dataToUpdate.pricing = updateData.pricing;
-        } else {
-          dataToUpdate.pricing = {
-            weekly: Math.round(updateData.monthlyPrice * 0.3),
-            monthly: updateData.monthlyPrice,
-            semester: Math.round(updateData.monthlyPrice * 5.5), // 6 months with discount
-            yearly: Math.round(updateData.monthlyPrice * 10) // 12 months with discount
-          };
-        }
-      } else if (updateData.pricing) {
-        dataToUpdate.pricing = updateData.pricing;
-      }
-      
-      // Update room in Firestore
-      await updateRoom(id, dataToUpdate);
-      
-      // Fetch updated room to return complete data
-      const updatedRoom = await getRoomById(id);
-      
-      return {
-        success: true,
-        message: 'Room updated successfully',
-        room: updatedRoom
-      };
-
-    } catch (error: any) {
-      console.error('Error updating room:', error);
-      return {
-        success: false,
-        error: 'Failed to update room',
-        message: error.message || 'Unknown error'
-      };
-    }
-  })
-  // Booking Management Endpoints
-  .get('/api/bookings', async ({ query, headers }) => {
-    try {
-      // Verify authorization for admin
-      const authHeader = headers.authorization;
-      const expectedKey = process.env.BACKEND_API_KEY || 'gaadakey';
-      
-      if (!authHeader || authHeader !== `Bearer ${expectedKey}`) {
-        return {
-          success: false,
-          error: 'Unauthorized'
-        };
-      }
-
-      const { userId } = query;
-
-      let bookings;
-      if (userId) {
-        // Get bookings for specific user
-        bookings = await getBookingsByUserId(userId as string);
-      } else {
-        // Get all bookings (admin only)
-        bookings = await getAllBookings();
-      }
-      
-      return {
-        success: true,
-        bookings: bookings
-      };
-    } catch (error: any) {
-      console.error('Error fetching bookings:', error);
-      return {
-        success: false,
-        error: 'Failed to fetch bookings',
-        message: error.message || 'Unknown error'
-      };
-    }
-  })
-  .get('/api/bookings/:id', async ({ params }) => {
-    try {
-      const { id } = params;
-      
-      const booking = await getBookingById(id);
-      
-      if (!booking) {
-        return {
-          success: false,
-          booking: null,
-          message: 'Booking not found'
-        };
-      }
-      
-      return {
-        success: true,
-        booking: booking
-      };
-    } catch (error: any) {
-      console.error('Error fetching booking:', error);
-      return {
-        success: false,
-        error: 'Failed to fetch booking',
-        message: error.message || 'Unknown error'
-      };
-    }
-  })
-  .post('/api/bookings', async ({ body }) => {
-    try {
-      const bookingData = body as any;
-
-      // Validate required fields
-      if (!bookingData.room || !bookingData.rentalPeriod || !bookingData.contactInfo) {
-        return {
-          success: false,
-          error: 'Missing required fields: room, rentalPeriod, contactInfo are required'
-        };
-      }
-
-      // Prepare booking data for Firestore
-      const newBookingData = {
-        userId: bookingData.userId || 'guest',
-        room: {
-          id: bookingData.room.id,
-          roomNumber: bookingData.room.roomNumber || bookingData.room.name,
-          type: bookingData.room.type || 'Standard',
-          floor: bookingData.room.floor || 1,
-          size: bookingData.room.size || 'Standard',
-          description: bookingData.room.description || '',
-          facilities: bookingData.room.facilities || [],
-          imagesGallery: bookingData.room.images || bookingData.room.imagesGallery || []
-        },
-        rentalStatus: 'PENDING' as const,
-        rentalPeriod: {
-          startDate: new Date(bookingData.rentalPeriod.startDate),
-          endDate: new Date(bookingData.rentalPeriod.endDate),
-          durationType: bookingData.rentalPeriod.durationType || 'MONTHLY'
-        },
-        documents: [],
-        notes: bookingData.notes || '',
-        contactInfo: {
-          name: bookingData.contactInfo.name,
-          email: bookingData.contactInfo.email,
-          phone: bookingData.contactInfo.phone,
-          whatsapp: bookingData.contactInfo.whatsapp || bookingData.contactInfo.phone
-        }
-      };
-
-      // Create booking in Firestore
-      const bookingId = await createBooking(newBookingData);
-      
-      console.log(`📋 New booking created: ${bookingId} for user ${bookingData.userId}`);
-      
-      // Fetch the created booking to return complete data
-      const createdBooking = await getBookingById(bookingId);
-      
-      return {
-        success: true,
-        message: 'Booking created successfully',
-        bookingId: bookingId,
-        booking: createdBooking
-      };
-
-    } catch (error: any) {
-      console.error('Error creating booking:', error);
-      return {
-        success: false,
-        error: 'Failed to create booking',
-        message: error.message || 'Unknown error'
-      };
-    }
-  })
-  .post('/api/admin/bookings/:id/action', async ({ params, body, headers }) => {
-    try {
-      // Verify authorization
-      const authHeader = headers.authorization;
-      const expectedKey = process.env.BACKEND_API_KEY || 'gaadakey';
-      
-      if (!authHeader || authHeader !== `Bearer ${expectedKey}`) {
-        return {
-          success: false,
-          error: 'Unauthorized'
-        };
-      }
-
-      const { id } = params;
-      const { action } = body as any;
-      
-      if (!action || !['approve', 'reject', 'confirm'].includes(action)) {
-        return {
-          success: false,
-          error: 'Invalid action. Must be: approve, reject, or confirm'
-        };
-      }
-
-      // Get current booking
-      const booking = await getBookingById(id);
-      if (!booking) {
-        return {
-          success: false,
-          error: 'Booking not found'
-        };
-      }
-
-      let newStatus: 'PENDING' | 'SETUJUI' | 'CANCEL';
-      let statusMessage: string;
-
-      switch (action) {
-        case 'approve':
-          if (booking.rentalStatus !== 'PENDING') {
-            return {
-              success: false,
-              error: 'Only pending bookings can be approved'
-            };
-          }
-          newStatus = 'SETUJUI';
-          statusMessage = 'approved';
-          break;
-
-        case 'reject':
-        case 'cancel':
-          newStatus = 'CANCEL';
-          statusMessage = action === 'reject' ? 'rejected' : 'cancelled';
-          break;
-
-        default:
-          return {
-            success: false,
-            error: 'Invalid action. Use: approve, reject, or cancel'
-          };
-      }
-
-      // Update booking status
-      await updateBooking(id, {
-        rentalStatus: newStatus,
-        updatedAt: new Date()
-      });
-
-      // Fetch updated booking
-      const updatedBooking = await getBookingById(id);
-
-      console.log(`📋 Booking ${id} ${statusMessage} by admin`);
-
-      return {
-        success: true,
-        booking: updatedBooking,
-        message: `Booking ${statusMessage} successfully`
-      };
-
-    } catch (error: any) {
-      console.error('Error updating booking status:', error);
-      return {
-        success: false,
-        error: 'Failed to update booking status',
-        message: error.message || 'Unknown error'
-      };
-    }
-  })
-  .put('/api/admin/bookings/:id', async ({ params, body, headers }) => {
-    try {
-      // Verify authorization
-      const authHeader = headers.authorization;
-      const expectedKey = process.env.BACKEND_API_KEY || 'gaadakey';
-      
-      if (!authHeader || authHeader !== `Bearer ${expectedKey}`) {
-        return {
-          success: false,
-          error: 'Unauthorized'
-        };
-      }
-
-      const { id } = params;
-      const updateData = body as any;
-      
-      // Check if booking exists
-      const existingBooking = await getBookingById(id);
-      if (!existingBooking) {
-        return {
-          success: false,
-          error: 'Booking not found'
-        };
-      }
-      
-      // Prepare update data
-      const dataToUpdate: any = {};
-      
-      if (updateData.rentalStatus) dataToUpdate.rentalStatus = updateData.rentalStatus;
-      if (updateData.notes !== undefined) dataToUpdate.notes = updateData.notes;
-      
-      if (updateData.rentalPeriod) {
-        dataToUpdate.rentalPeriod = {
-          startDate: new Date(updateData.rentalPeriod.startDate),
-          endDate: new Date(updateData.rentalPeriod.endDate),
-          durationType: updateData.rentalPeriod.durationType
-        };
-      }
-
-      if (updateData.documents) {
-        dataToUpdate.documents = updateData.documents.map((doc: any) => ({
-          ...doc,
-          createdAt: new Date(doc.createdAt || Date.now())
-        }));
-      }
-      
-      // Update booking in Firestore
-      await updateBooking(id, dataToUpdate);
-      
-      // Fetch updated booking to return complete data
-      const updatedBooking = await getBookingById(id);
-      
-      return {
-        success: true,
-        message: 'Booking updated successfully',
-        booking: updatedBooking
-      };
-
-    } catch (error: any) {
-      console.error('Error updating booking:', error);
-      return {
-        success: false,
-        error: 'Failed to update booking',
-        message: error.message || 'Unknown error'
-      };
-    }
-  })
-  .delete('/api/admin/bookings/:id', async ({ params, headers }) => {
-    try {
-      // Verify authorization
-      const authHeader = headers.authorization;
-      const expectedKey = process.env.BACKEND_API_KEY || 'gaadakey';
-      
-      if (!authHeader || authHeader !== `Bearer ${expectedKey}`) {
-        return {
-          success: false,
-          error: 'Unauthorized'
-        };
-      }
-
-      const { id } = params;
-      
-      // Check if booking exists
-      const existingBooking = await getBookingById(id);
-      if (!existingBooking) {
-        return {
-          success: false,
-          error: 'Booking not found'
-        };
-      }
-      
-      // Delete booking from Firestore
-      await deleteBooking(id);
-      
-      return {
-        success: true,
-        message: 'Booking deleted successfully'
-      };
-
-    } catch (error: any) {
-      console.error('Error deleting booking:', error);
-      return {
-        success: false,
-        error: 'Failed to delete booking',
-        message: error.message || 'Unknown error'
-      };
-    }
-  })
   .post('/reminder/send', async ({ body }) => {
     const { phoneNumber, message } = body as any;
     
@@ -884,7 +331,7 @@ const app = new Elysia()
       };
     }
   })
-  // Get bookings for a specific user (public endpoint for user dashboard)
+  // Get bookings for a specific user (proxy to frontend)
   .get('/api/bookings/user/:userId', async ({ params }) => {
     try {
       const { userId } = params;
@@ -896,19 +343,60 @@ const app = new Elysia()
         };
       }
 
-      console.log(`🔍 API: Fetching bookings for user: ${userId}`);
-      const bookings = await getBookingsByUserId(userId);
+      console.log(`🔍 API: Proxying booking request for user: ${userId}`);
       
+      // Proxy request to frontend API
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const response = await fetch(`${frontendUrl}/api/bookings?userId=${userId}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch from frontend');
+      }
+      
+      const result = await response.json() as any;
       return {
         success: true,
-        bookings: bookings
+        bookings: result.bookings || []
       };
     } catch (error: any) {
-      console.error('Error fetching user bookings:', error);
+      console.error('Error proxying user bookings:', error);
       return {
         success: false,
         error: 'Failed to fetch user bookings',
         message: error.message || 'Unknown error'
+      };
+    }
+  })
+  // New H-15 Booking Reminder Endpoint (simplified for all booking types)
+  .post('/api/cron/h15-reminders', async ({ headers }) => {
+    // Verify authorization
+    const authHeader = headers.authorization;
+    const expectedKey = process.env.BACKEND_API_KEY || 'gaadakey';
+    
+    if (!authHeader || authHeader !== `Bearer ${expectedKey}`) {
+      return {
+        success: false,
+        error: 'Unauthorized'
+      };
+    }
+
+    try {
+      console.log('🔄 Running H-15 reminder check for all booking types...');
+      
+      // Use our new dedicated booking reminder service
+      await cronManager.runManually('booking-reminder-check');
+      
+      return {
+        success: true,
+        message: 'H-15 reminder check completed successfully',
+        executedAt: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('❌ Error in H-15 reminder check:', error);
+      return {
+        success: false,
+        error: 'Failed to process H-15 reminders',
+        details: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   })
@@ -934,8 +422,16 @@ const app = new Elysia()
       let totalErrors = 0;
       const details: any[] = [];
 
-      // Get all active bookings
-      const allBookings = await getAllBookings();
+      // Get all active bookings from frontend
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const bookingsResponse = await fetch(`${frontendUrl}/api/bookings`);
+      
+      if (!bookingsResponse.ok) {
+        throw new Error('Failed to fetch bookings from frontend');
+      }
+      
+      const bookingsResult = await bookingsResponse.json() as any;
+      const allBookings = bookingsResult.bookings || [];
       
       for (const schedule of reminderSchedule) {
         console.log(`📅 Processing ${schedule.durationType} reminders (H-${schedule.daysBefore})...`);
@@ -945,7 +441,7 @@ const app = new Elysia()
         const targetDate = new Date();
         targetDate.setDate(now.getDate() + schedule.daysBefore);
         
-        const expiringBookings = allBookings.filter(booking => {
+        const expiringBookings = allBookings.filter((booking: any) => {
           // Check if booking matches duration type
           const matchesDurationType = booking.rentalPeriod?.durationType === schedule.durationType;
           
@@ -956,7 +452,7 @@ const app = new Elysia()
           const isExpiring = daysDiff <= 1; // Within 1 day of target
           
           // Only send reminders for approved bookings
-          const isActive = booking.rentalStatus === 'SETUJUI';
+          const isActive = booking.rentalStatus === 'APPROVED';
           
           return matchesDurationType && isExpiring && isActive;
         });
@@ -1036,6 +532,132 @@ const app = new Elysia()
       };
     }
   })
+  // Cron Management Endpoints
+  .get('/api/cron/status', async ({ headers }) => {
+    // Verify authorization
+    const authHeader = headers.authorization;
+    const expectedKey = process.env.BACKEND_API_KEY || 'gaadakey';
+    
+    if (!authHeader || authHeader !== `Bearer ${expectedKey}`) {
+      return {
+        success: false,
+        error: 'Unauthorized'
+      };
+    }
+
+    try {
+      const jobs = cronManager.getJobs();
+      
+      return {
+        success: true,
+        message: 'Cron status retrieved successfully',
+        jobs: jobs,
+        totalJobs: jobs.length,
+        serviceInitialized: true
+      };
+    } catch (error) {
+      console.error('Error getting cron status:', error);
+      return {
+        success: false,
+        error: 'Failed to get cron status'
+      };
+    }
+  })
+  .post('/api/cron/test-reminders', async ({ headers }) => {
+    // Verify authorization
+    const authHeader = headers.authorization;
+    const expectedKey = process.env.BACKEND_API_KEY || 'gaadakey';
+    
+    if (!authHeader || authHeader !== `Bearer ${expectedKey}`) {
+      return {
+        success: false,
+        error: 'Unauthorized'
+      };
+    }
+
+    try {
+      console.log('🧪 Running test reminders manually...');
+      const result = await bookingReminderService.sendTestReminders();
+      
+      return {
+        ...result,
+        message: result.success ? 'Test reminders executed successfully' : result.message
+      };
+    } catch (error) {
+      console.error('Error in test reminders:', error);
+      return {
+        success: false,
+        error: 'Failed to run test reminders',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  })
+  .post('/api/cron/run-job', async ({ body, headers }) => {
+    // Verify authorization
+    const authHeader = headers.authorization;
+    const expectedKey = process.env.BACKEND_API_KEY || 'gaadakey';
+    
+    if (!authHeader || authHeader !== `Bearer ${expectedKey}`) {
+      return {
+        success: false,
+        error: 'Unauthorized'
+      };
+    }
+
+    const { jobName } = body as any;
+    
+    if (!jobName) {
+      return {
+        success: false,
+        error: 'Job name is required'
+      };
+    }
+
+    try {
+      await cronManager.runManually(jobName);
+      
+      return {
+        success: true,
+        message: `Job ${jobName} executed manually`,
+        jobName: jobName,
+        executedAt: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error(`Error running job ${jobName}:`, error);
+      return {
+        success: false,
+        error: `Failed to run job: ${jobName}`,
+        details: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  })
+  .post('/api/cron/stop-all', async ({ headers }) => {
+    // Verify authorization
+    const authHeader = headers.authorization;
+    const expectedKey = process.env.BACKEND_API_KEY || 'gaadakey';
+    
+    if (!authHeader || authHeader !== `Bearer ${expectedKey}`) {
+      return {
+        success: false,
+        error: 'Unauthorized'
+      };
+    }
+
+    try {
+      cronManager.stopAll();
+      
+      return {
+        success: true,
+        message: 'All cron jobs stopped successfully'
+      };
+    } catch (error) {
+      console.error('Error stopping cron jobs:', error);
+      return {
+        success: false,
+        error: 'Failed to stop cron jobs'
+      };
+    }
+  })
   // Upload document for booking
   .post('/api/admin/bookings/upload-document', async ({ body, headers, request }) => {
     try {
@@ -1081,14 +703,19 @@ const app = new Elysia()
         };
       }
 
-      // Get booking to verify it exists
-      const booking = await getBookingById(bookingId);
-      if (!booking) {
+      // Get booking to verify it exists (from frontend)
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const bookingResponse = await fetch(`${frontendUrl}/api/bookings/${bookingId}`);
+      
+      if (!bookingResponse.ok) {
         return {
           success: false,
           error: 'Booking not found'
         };
       }
+      
+      const bookingResult = await bookingResponse.json() as any;
+      const booking = bookingResult.booking;
 
       // Create filename with timestamp
       const timestamp = Date.now();
@@ -1112,12 +739,23 @@ const app = new Elysia()
           createdAt: new Date()
         };
 
-        // Update booking with new document
+        // Update booking with new document (via frontend API)
         const updatedDocuments = booking.documents ? [...booking.documents, document] : [document];
         
-        await updateBooking(bookingId, {
-          documents: updatedDocuments
+        const updateResponse = await fetch(`${frontendUrl}/api/bookings/${bookingId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            documents: updatedDocuments
+          })
         });
+
+        if (!updateResponse.ok) {
+          console.error('Failed to update booking via frontend');
+          // Continue anyway since file was saved
+        }
 
         console.log(`📄 Document uploaded for booking ${bookingId}: ${documentType}`);
 
@@ -1149,6 +787,14 @@ const app = new Elysia()
     process.env.DEBUG = 'queues,*';
     console.log(`🦊 Server is running at ${hostname}:${port}`);
     console.log('🔄 WhatsApp message queue initialized with random delay (2-4 seconds)');
+    
+    // Initialize booking reminder service
+    try {
+      bookingReminderService.init();
+      console.log('✅ Booking reminder cron service initialized');
+    } catch (error) {
+      console.error('❌ Failed to initialize booking reminder service:', error);
+    }
   });
 
 console.log('CORS enabled for all origins (*)');

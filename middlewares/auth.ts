@@ -13,7 +13,9 @@ export const authMiddleware = new Elysia()
       pathname.startsWith('/api/admin/') ||
       pathname.startsWith('/api/rooms') ||
       pathname.startsWith('/api/bookings') ||
-      pathname.startsWith('/api/upload')
+      pathname.startsWith('/api/upload') ||
+      pathname.startsWith('/api/cron/') ||  // Skip auth for cron endpoints (they have their own auth)
+      pathname.startsWith('/api/whatsapp/')  // Skip auth for whatsapp endpoints (they have their own auth)
     ) {
       return {};
     }
