@@ -11,8 +11,8 @@ import {
   qrCode
 } from './utils/whatsapp-connection';
 import { InMemoryMessageQueue, QueueItem } from './utils/message-queue';
-import { bookingReminderService } from './utils/booking-reminder';
-import { cronManager } from './utils/cron-manager';
+import { bookingReminderService } from './utils/booking-reminder'; // isa akan kerjakan
+import { cronManager } from './utils/cron-manager'; // isa akan kerjakan
 
 // Set default API secret key jika tidak ada di environment
 if (!process.env.API_SECRET_KEY) {
@@ -368,6 +368,7 @@ const app = new Elysia()
     }
   })
   // New H-15 Booking Reminder Endpoint (simplified for all booking types)
+  // isa akan kerjakan
   .post('/api/cron/h15-reminders', async ({ headers }) => {
     // Verify authorization
     const authHeader = headers.authorization;
@@ -401,6 +402,7 @@ const app = new Elysia()
     }
   })
   // Cron endpoint to check and send reminders based on duration type
+  // isa akan kerjakan
   .post('/api/cron/check-reminders', async ({ body, headers }) => {
     try {
       // Verify authorization
@@ -533,6 +535,7 @@ const app = new Elysia()
     }
   })
   // Cron Management Endpoints
+  // isa akan kerjakan
   .get('/api/cron/status', async ({ headers }) => {
     // Verify authorization
     const authHeader = headers.authorization;
@@ -564,6 +567,7 @@ const app = new Elysia()
     }
   })
   .post('/api/cron/test-reminders', async ({ headers }) => {
+    // isa akan kerjakan
     // Verify authorization
     const authHeader = headers.authorization;
     const expectedKey = process.env.BACKEND_API_KEY || 'gaadakey';
@@ -593,6 +597,7 @@ const app = new Elysia()
     }
   })
   .post('/api/cron/run-job', async ({ body, headers }) => {
+    // isa akan kerjakan
     // Verify authorization
     const authHeader = headers.authorization;
     const expectedKey = process.env.BACKEND_API_KEY || 'gaadakey';
@@ -632,6 +637,7 @@ const app = new Elysia()
     }
   })
   .post('/api/cron/stop-all', async ({ headers }) => {
+    // isa akan kerjakan
     // Verify authorization
     const authHeader = headers.authorization;
     const expectedKey = process.env.BACKEND_API_KEY || 'gaadakey';
@@ -789,6 +795,7 @@ const app = new Elysia()
     console.log('🔄 WhatsApp message queue initialized with random delay (2-4 seconds)');
     
     // Initialize booking reminder service
+    // isa akan kerjakan
     try {
       bookingReminderService.init();
       console.log('✅ Booking reminder cron service initialized');

@@ -1,4 +1,5 @@
 // Production-ready Cron job manager for Bun runtime
+// isa akan kerjakan
 
 interface CronJob {
   name: string;
@@ -18,6 +19,7 @@ export class CronManager {
 
   /**
    * Initialize the cron manager
+   * isa akan kerjakan
    */
   init() {
     if (this.isInitialized) {
@@ -32,6 +34,7 @@ export class CronManager {
 
   /**
    * Schedule a cron job with production features
+   * isa akan kerjakan
    * @param name - Unique job name
    * @param cronExpression - Standard cron expression (5 or 6 fields)
    * @param handler - Function to execute
@@ -249,6 +252,7 @@ export class CronManager {
 
   /**
    * Run a job manually (for testing)
+   * isa akan kerjakan
    */
   async runManually(name: string): Promise<{ success: boolean; error?: string; duration?: number }> {
     const job = this.jobs.get(name);
@@ -321,6 +325,7 @@ export class CronManager {
 
   /**
    * Get all scheduled jobs names
+   * isa akan kerjakan
    */
   getJobs(): string[] {
     return Array.from(this.jobs.keys());
@@ -328,6 +333,7 @@ export class CronManager {
 
   /**
    * Stop all cron jobs
+   * isa akan kerjakan
    */
   stopAll(): void {
     console.log('🛑 Stopping all cron jobs...');
@@ -361,4 +367,5 @@ export class CronManager {
 }
 
 // Singleton instance
+// isa akan kerjakan
 export const cronManager = new CronManager();

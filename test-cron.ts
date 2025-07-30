@@ -1,10 +1,12 @@
 #!/usr/bin/env bun
 // Test script for the cron reminder system
+// isa akan kerjakan
 
 const BACKEND_URL = 'http://localhost:8080';
 const API_KEY = 'gaadakey'; // Default key
 
 async function testCronEndpoints() {
+  // isa akan kerjakan
   console.log('🧪 Testing Cron Reminder System...\n');
 
   // Test 1: Check cron status

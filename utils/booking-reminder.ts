@@ -1,4 +1,5 @@
 import { cronManager } from './cron-manager';
+// isa akan kerjakan
 
 export interface BookingReminderData {
   bookingId: string;
@@ -21,6 +22,7 @@ interface ReminderStats {
 }
 
 export class BookingReminderService {
+  // isa akan kerjakan
   private isInitialized = false;
   private sentReminders = new Set<string>(); // Track sent reminders to avoid duplicates
   private stats: ReminderStats = {
@@ -33,6 +35,7 @@ export class BookingReminderService {
 
   /**
    * Initialize the reminder service and start cron jobs
+   * isa akan kerjakan
    */
   init() {
     if (this.isInitialized) {
@@ -46,6 +49,7 @@ export class BookingReminderService {
     cronManager.init();
 
     // Schedule H-15 reminder check (daily at 9:00 AM)
+    // isa akan kerjakan
     cronManager.schedule(
       'booking-reminder-h15',
       '0 9 * * *', // Daily at 9:00 AM
@@ -53,6 +57,7 @@ export class BookingReminderService {
     );
 
     // Schedule H-1 reminder check (daily at 9:00 AM)  
+    // isa akan kerjakan
     cronManager.schedule(
       'booking-reminder-h1',
       '0 9 * * *', // Daily at 9:00 AM
@@ -60,6 +65,7 @@ export class BookingReminderService {
     );
 
     // Clear stats daily at midnight
+    // isa akan kerjakan
     cronManager.schedule(
       'booking-reminder-reset-stats',
       '0 0 * * *', // Daily at midnight
@@ -89,6 +95,7 @@ export class BookingReminderService {
 
   /**
    * Check for H-15 reminders (15 days before expiry)
+   * isa akan kerjakan
    */
   private async checkH15Reminders() {
     try {
@@ -122,6 +129,7 @@ export class BookingReminderService {
 
   /**
    * Check for H-1 reminders (1 day before expiry)
+   * isa akan kerjakan
    */
   private async checkH1Reminders() {
     try {
@@ -155,6 +163,7 @@ export class BookingReminderService {
 
   /**
    * Combined method for manual triggers
+   * isa akan kerjakan
    */
   async checkAndSendReminders() {
     console.log('🔍 Manual reminder check triggered...');
@@ -415,6 +424,7 @@ _Pesan otomatis - Suman Residence_`;
 
   /**
    * Manual trigger for testing (sends reminders for bookings expiring in next 30 days)
+   * isa akan kerjakan
    */
   async sendTestReminders() {
     try {
@@ -501,4 +511,5 @@ _Pesan otomatis - Suman Residence_`;
 }
 
 // Singleton instance
+// isa akan kerjakan
 export const bookingReminderService = new BookingReminderService();
