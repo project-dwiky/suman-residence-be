@@ -2,6 +2,7 @@
 FROM oven/bun:latest as base
 
 ARG API_SECRET_KEY
+ARG MAIN_SERVICE_URL
 
 # Set direktori kerja
 WORKDIR /app
@@ -16,6 +17,7 @@ RUN bun install --frozen-lockfile
 COPY . .
 
 ENV API_SECRET_KEY=${API_SECRET_KEY}
+ENV MAIN_SERVICE_URL=${MAIN_SERVICE_URL}
 
 # Buat direktori untuk menyimpan autentikasi WhatsApp
 RUN mkdir -p whatsapp-auth && chmod 777 whatsapp-auth
